@@ -304,6 +304,9 @@ class GatewayFinder:
     async def crawl_urls(self, start_url: str) -> Set[str]:
         """Crawl the website for payment-related URLs."""
         urls = set()
+        if start_url in self.seen_urls:
+            return urls
+        self.seen_urls.add(start_url)
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -316,9 +319,14 @@ class GatewayFinder:
                 links = await page.query_selector_all('a')
                 for link in links:
                     href = await link.get_attribute('href')
+                    if not href:
+                        continue
                     full_url = urljoin(start_url, href)
+                    if any(ignore in full_url.lower() for ignore in IGNORE_IF_URL_CONTAINS):
+                        continue
                     if self.is_relevant_url(full_url, start_url):
                         urls.add(full_url)
+                        self.seen_urls.add(full_url)
             except Exception as e:
                 logger.error(f"Error crawling {start_url}: {e}")
             finally:
