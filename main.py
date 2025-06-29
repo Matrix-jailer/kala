@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import HttpUrl
 from playwright.async_api import async_playwright
 from seleniumwire import webdriver
-from seleniumwire.utils import get_driver
+from seleniumwire import webdriver
 from bs4 import BeautifulSoup
 import aiohttp
 import tls_client
@@ -381,7 +381,11 @@ class GatewayFinder:
     async def selenium_wire_analyze(self, urls: List[str]) -> Dict:
         """Analyze network traffic with Selenium Wire."""
         results = {"gateways": set(), "3d_secure": False, "captcha": set(), "cloudflare": False}
-        driver = get_driver(name='chrome', headless=True)
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        driver = webdriver.Chrome(options=options
         
         for url in urls:
             try:
