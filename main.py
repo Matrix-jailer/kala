@@ -355,6 +355,7 @@ class GatewayFinder:
                 except Exception as e:
                     logger.error(f"Error crawling {current_url}: {e}")
             await browser.close()
+        logger.info(f"[crawl_urls] Found {len(collected_urls)} relevant URLs from {start_url}")
         return collected_urls.union({start_url})
 
     def is_relevant_url(self, url: str, base_url: str) -> bool:
