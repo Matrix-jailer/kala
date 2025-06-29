@@ -13,7 +13,6 @@ from seleniumwire.utils import get_driver
 from bs4 import BeautifulSoup
 import aiohttp
 import tls_client
-from fingerprint_injector import FingerprintInjector
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -277,8 +276,6 @@ app = FastAPI()
 class GatewayFinder:
     def __init__(self):
         self.session = tls_client.Session(client_identifier="chrome_120")
-        self.fingerprint_injector = FingerprintInjector()
-
     async def crawl_urls(self, start_url: str) -> Set[str]:
         """Crawl the website for payment-related URLs."""
         urls = set()
