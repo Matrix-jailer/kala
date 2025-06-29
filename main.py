@@ -466,19 +466,32 @@ class GatewayFinder:
             for url in urls:
                 try:
                     await page.goto(url, timeout=30000)
-                    await asyncio.sleep(5)
+                    await page.wait_for_load_state("domcontentloaded", timeout=10000)
                     
                     # Click payment-related buttons or links
                     elements = await page.query_selector_all('button, a')
+                    element_texts = []
                     for element in elements:
-                        text = (await element.inner_text()).lower().strip()
-                        if any(kw in text for kw in clickable_keywords):
+                        try:
+                            if not await element.is_visible() or not await element.is_enabled():
+                                continue
+                            text = await element.evaluate('(el) => (el.innerText || el.textContent || "").toLowerCase().trim()')
+                            if text and any(kw in text for kw in clickable_keywords):
+                                element_texts.append((element, text))
+                        except Exception as e:
+                                logger.info(f"Failed to get text for element at {url}: {e}")
+                    for element, text in element_texts:
                             try:
-                                await element.click()
-                                await asyncio.sleep(3)
+                                current_url = page.url
+                                await element.click(timeout=5000)
+                                await page.wait_for_load_state("domcontentloaded", timeout=10000)
+                                if urlparse(page.url).netloc != urlparse(current_url).netloc:
+                                    await page.goto(current_url, timeout=10000)
+                                    await page.wait_for_load_state("domcontentloaded", timeout=10000)
+                                    continue
+                                await page.wait_for_timeout(1000)  # Brief pause for dynamic content
                             except Exception as e:
-                                logger.info(f"Failed to click element at {url}: {e}")
-
+                                logger.info(f"Click failed at {url}: {e}")
                     contents = await self.extract_deep_content(page)
                     
                     for content in contents:
@@ -565,7 +578,9 @@ class GatewayFinder:
                 # Collect fetch logs
                 fetch_logs = driver.execute_script("return window.__capturedFetches || []")
                 for entry in fetch_logs:
-                    combined = f"{entry['url']} {entry['body']} {entry['response']}".lower()
+                    body = str(entry.get('body', '')) if entry.get('body') else ''
+                    response = str(entry.get('response', '')) if entry.get('response') else ''
+                    combined = f"{entry.get('url', '')} {body} {response}".lower()
                     for gateway, patterns in GATEWAY_KEYWORDS.items():
                         if any(p.search(combined) for p in patterns):
                             gateway_name = gateway.capitalize()
