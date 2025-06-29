@@ -21,33 +21,37 @@ logger = logging.getLogger(__name__)
 PAYMENT_INDICATOR_REGEX = [
     re.compile(re.escape(kw), re.IGNORECASE)
     for kw in [
-        "cart", "checkout", "payment", "buy", "purchase", "order", "billing", "subscribe",
-        "shop", "store", "pricing", "add-to-cart", "pay-now", "secure-checkout", "complete-order",
-        "transaction", "invoice", "checkout2", "donate", "donation", "add-to-bag", "add-to-basket",
-        "shop-now", "buy-now", "order-now", "proceed-to-checkout", "pay", "payment-method",
-        "credit-card", "debit-card", "place-order", "confirm-purchase", "get-started",
-        "sign-up", "join-now", "membership", "upgrade", "renew", "trial", "subscribe-now",
-        "book-now", "reserve", "fund", "pledge", "support", "contribute",
-        "complete-purchase", "finalize-order", "payment-details", "billing-info",
-        "secure-payment", "pay-securely", "shop-secure", "give", "donate-now", "donatenow",
-        "donate_now", "get-now", "browse", "category", "items", "product", "item",
-        "giftcard", "topup", "plans", "buynow", "sell", "sell-now", "purchase-now",
-        "shopnow", "shopping", "menu", "games",
-        "sale", "vps", "server", "about", "about-us",
-        "cart-items", "buy-secure", "cart-page", "checkout-page",
-        "order-summary", "payment-form", "purchase-flow", "shop-cart", "ecommerce", "store-cart",
-        "buy-button", "purchase-button", "add-item", "remove-item", "cart-update",
-        "apply-coupon", "redeem-code", "discount-code", "promo-code", "gift-card", "pay-with",
-        "payment-options", "express-checkout", "quick-buy", "one-click-buy", "instant-purchase"
+        # Core purchase flow
+        "cart", "checkout", "payment", "pay", "buy", "purchase", "order", "billing",
+        "invoice", "transaction", "secure-checkout", "confirm-purchase", "complete-order",
+        "place-order", "express-checkout", "quick-buy", "buy-now", "shop-now",
+
+        # Subscription & upgrades
+        "subscribe", "trial", "renew", "upgrade", "membership", "plans",
+
+        # Promotions, coupons, gift cards
+        "apply-coupon", "discount-code", "gift-card", "promo-code", "redeem-code",
+
+        # Payment info/forms
+        "payment-method", "payment-details", "payment-form",
+
+        # Pricing pages
+        "pricing", "plans", "pricing-plan",
+
+        # BNPL / donate / support
+        "donate", "support", "pledge", "give",
     ]
 ]
-NON_HTML_EXTENSIONS = {'.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot', '.mp4', '.mp3', '.pdf', '.icon', '.img'}
-
+NON_HTML_EXTENSIONS = [
+    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg",
+    ".ico", ".pdf", ".zip", ".rar", ".7z", ".tar", ".gz", ".mp4", ".avi", ".mov",
+    ".css", ".js", ".woff", ".woff2", ".ttf", ".eot", ".otf", ".mp3", ".wav", ".flac"
+]
 IGNORE_IF_URL_CONTAINS = [
     # Common asset/content folders
-    "wp-content", "wp-includes", "skin/frontend", "/assets/", "/themes/", "/static/", "/media/", "/images/", "/img/",
+    "wp-content", "wp-includes", "skin/frontend", "/assets/", "cdn.cookielaw.org", "cookiebot.com", "clarity.ms", "sentry.io", "cdn.jsdelivr.net", "fonts.gstatic.com", "doubleclick.net", "segment.com", "matomo.org", "bam.nr-data.net", "/browser/vitals", "/themes/", "/static/", "/media/", "/images/", "/img/",
 
-    "https://facebook.com", "https://googlemanager.com", "https://static.klaviyo.com", "static.klaviyo.com", "https://content-autofill.googleapis.com",
+    "https://facebook.com", "https://googlemanager.com", "consentcdn.cookiebot.com", "https://hb.imgix.net", "https://content-autofill.googleapis.com", "cookiebot.com", "https://static.klaviyo.com", "static.klaviyo.com", "https://content-autofill.googleapis.com",
     "content-autofill.googleapis.com", "https://www.google.com", "https://googleads.g.doubleclick.net", "googleads.g.doubleclick.net", "googleads.g.doubleclick.net",
     "https://www.googletagmanager.com", "googletagmanager.com", "https://www.googleadservices.com", "googleadservices.com", "https://fonts.googleapis.com",
     "fonts.googleapis.com", "http://clients2.google.com", "clients2.google.com", "https://analytics.google.com", "hanalytics.google.com",
