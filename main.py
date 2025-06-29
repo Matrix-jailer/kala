@@ -302,28 +302,64 @@ class GatewayFinder:
         self.seen_urls = set()
         self.session = tls_client.Session(client_identifier="chrome_120")
     async def crawl_urls(self, start_url: str) -> Set[str]:
-        """Crawl the website for payment-related URLs."""
+        """Crawl the website for payment-related URLs from anchors, buttons, forms, and onclicks."""
+        visited = set()
+        to_visit = [(start_url, 0)]
+        collected_urls = set()
         urls = set()
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            
+            while to_visit:
+                current_url, depth = to_visit.pop(0)
+                if current_url in visited or depth > max_depth:
+                    continue
+                visited.add(current_url)
             try:
-                await page.goto(start_url, timeout=30000)
-                await asyncio.sleep(5)  # Mimic human behavior
+                await page.goto(current_url, timeout=30000)
+                await asyncio.sleep(2)
                 await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                 
                 # Extract links
-                links = await page.query_selector_all('a')
-                for link in links:
-                    href = await link.get_attribute('href')
-                    full_url = urljoin(start_url, href)
-                    if self.is_relevant_url(full_url, start_url):
-                        urls.add(full_url)
+                anchors = await page.query_selector_all("a")
+                for a in anchors:
+                    href = await a.get_attribute("href")
+                    if href:
+                        full_url = urljoin(current_url, href)
+                        if self.is_relevant_url(full_url, start_url):
+                        collected_urls.add(full_url)
+                        to_visit.append((full_url, depth + 1))
+                forms = await page.query_selector_all("form")
+                for form in forms:
+                    action = await form.get_attribute("action")
+                    if action:
+                        full_url = urljoin(current_url, action)
+                        if self.is_relevant_url(full_url, start_url):
+                            collected_urls.add(full_url)
+                            to_visit.append((full_url, depth + 1))
+                buttons = await page.query_selector_all("button")
+                for btn in buttons:
+                    onclick = await btn.get_attribute("onclick")
+                    if onclick:
+                        urls_in_js = self.extract_urls_from_js(onclick, current_url)
+                        for u in urls_in_js:
+                            if self.is_relevant_url(u, start_url):
+                                collected_urls.add(u)
+                                to_visit.append((u, depth + 1))
+                 for a in anchors:
+                     onclick = await a.get_attribute("onclick")
+                     if onclick:
+                         urls_in_js = self.extract_urls_from_js(onclick, current_url)
+                         for u in urls_in_js:
+                             if self.is_relevant_url(u, start_url):
+                                 collected_urls.add(u)
+                                 to_visit.append((u, depth + 1))
+
             except Exception as e:
-                logger.error(f"Error crawling {start_url}: {e}")
-            finally:
-                await browser.close()
-        return urls
+                logger.error(f"Error crawling {current_url}: {e}")
+        await browser.close()
+    return collected_urls.union({start_url})
 
     def is_relevant_url(self, url: str, base_url: str) -> bool:
         """Check if a URL is relevant based on payment indicators and filters."""
@@ -334,6 +370,18 @@ class GatewayFinder:
         if any(regex.search(url) for regex in PAYMENT_INDICATOR_REGEX):
             return True
         return False
+    def extract_urls_from_js(self, js_code: str, base_url: str) -> Set[str]:
+        """Extract URLs from inline JS like onclick handlers."""
+        urls = set()
+        patterns = [
+            r"['\"](\/[a-zA-Z0-9_\-\/\?\=\&\#]+)['\"]",
+            r"['\"](https?:\/\/[^\s\"']+)['\"]"
+        ]
+        for pattern in patterns:
+            for match in re.findall(pattern, js_code):
+                full_url = urljoin(base_url, match)
+                urls.add(full_url)
+        return urls
 
     async def puppeteer_analyze(self, urls: List[str]) -> Dict:
         """Analyze URLs with Puppeteer for Shadow DOM, iframes, and JS."""
@@ -447,7 +495,7 @@ class GatewayFinder:
         }
 
         # Crawl URLs
-        urls = await self.crawl_urls(url)
+        urls = await self.crawl_urls(url, max_depth=2)
         urls.add(url)  # Include initial URL
 
         # Run tools in parallel
