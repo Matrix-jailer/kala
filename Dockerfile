@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y \
     nodejs \
     npm \
     chromium \
+    unzip \
     --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js for Puppeteer
@@ -40,7 +41,7 @@ RUN npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
 
 # Install ChromeDriver (match Chromium version, assuming Debian's Chromium is ~126-138)
 RUN CHROMEDRIVER_VERSION=$(chromium --version | grep -oP '\d+\.\d+\.\d+\.\d+') && \
-    wget -O /tmp/chromedriver.zip https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip && \
+    curl -sSL -o /tmp/chromedriver.zip https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip && \
     unzip /tmp/chromedriver.zip -d /usr/local/bin/ && \
     mv /usr/local/bin/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
     chmod +x /usr/local/bin/chromedriver && \
