@@ -2,6 +2,7 @@ import asyncio
 import re
 import time
 import logging
+from urllib.parse import urljoin
 from typing import List, Dict, Set
 from fastapi import FastAPI, HTTPException
 from pydantic import HttpUrl
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Dictionaries (as defined above)
 PAYMENT_INDICATOR_REGEX = [
-    re.compile(rf"\b{kw}\b", re.IGNORECASE)
+    re.compile(re.escape(kw), re.IGNORECASE)
     for kw in [
         "cart", "checkout", "payment", "buy", "purchase", "order", "billing", "subscribe",
         "shop", "store", "pricing", "add-to-cart", "pay-now", "secure-checkout", "complete-order",
@@ -198,45 +199,66 @@ GATEWAY_KEYWORDS = {
 }
 
 
+
 CAPTCHA_PATTERNS = {
     "reCaptcha": [
-        "g-recaptcha", "recaptcha/api.js", "data-sitekey", "nocaptcha",
-        "recaptcha.net", "www.google.com/recaptcha", "grecaptcha.execute",
-        "grecaptcha.render", "grecaptcha.ready", "recaptcha-token"
+        re.compile(p, re.IGNORECASE) for p in [
+            "g-recaptcha", "recaptcha/api.js", "data-sitekey", "nocaptcha",
+            "recaptcha.net", "www.google.com/recaptcha", "grecaptcha.execute",
+            "grecaptcha.render", "grecaptcha.ready", "recaptcha-token"
+        ]
     ],
     "hCaptcha": [
-        "hcaptcha", "assets.hcaptcha.com", "hcaptcha.com/1/api.js",
-        "data-hcaptcha-sitekey", "js.stripe.com/v3/hcaptcha-invisible", "hcaptcha-invisible", "hcaptcha.execute"
+        re.compile(p, re.IGNORECASE) for p in [
+            "hcaptcha", "assets.hcaptcha.com", "hcaptcha.com/1/api.js",
+            "data-hcaptcha-sitekey", "js.stripe.com/v3/hcaptcha-invisible",
+            "hcaptcha-invisible", "hcaptcha.execute"
+        ]
     ],
     "Turnstile": [
-        "turnstile", "challenges.cloudflare.com", "cf-turnstile-response",
-        "data-sitekey", "__cf_chl_", "cf_clearance"
+        re.compile(p, re.IGNORECASE) for p in [
+            "turnstile", "challenges.cloudflare.com", "cf-turnstile-response",
+            "data-sitekey", "__cf_chl_", "cf_clearance"
+        ]
     ],
     "Arkose Labs": [
-        "arkose-labs", "funcaptcha", "client-api.arkoselabs.com",
-        "fc-token", "fc-widget", "arkose", "press and hold", "funcaptcha.com"
+        re.compile(p, re.IGNORECASE) for p in [
+            "arkose-labs", "funcaptcha", "client-api.arkoselabs.com",
+            "fc-token", "fc-widget", "arkose", "press and hold", "funcaptcha.com"
+        ]
     ],
     "GeeTest": [
-        "geetest", "gt_captcha_obj", "gt.js", "geetest_challenge",
-        "geetest_validate", "geetest_seccode"
+        re.compile(p, re.IGNORECASE) for p in [
+            "geetest", "gt_captcha_obj", "gt.js", "geetest_challenge",
+            "geetest_validate", "geetest_seccode"
+        ]
     ],
     "BotDetect": [
-        "botdetectcaptcha", "BotDetect", "BDC_CaptchaImage", "CaptchaCodeTextBox"
+        re.compile(p, re.IGNORECASE) for p in [
+            "botdetectcaptcha", "BotDetect", "BDC_CaptchaImage", "CaptchaCodeTextBox"
+        ]
     ],
     "KeyCAPTCHA": [
-        "keycaptcha", "kc_submit", "kc__widget", "s_kc_cid"
+        re.compile(p, re.IGNORECASE) for p in [
+            "keycaptcha", "kc_submit", "kc__widget", "s_kc_cid"
+        ]
     ],
     "Anti Bot Detection": [
-        "fingerprintjs", "js.challenge", "checking your browser",
-        "verify you are human", "please enable javascript and cookies",
-        "sec-ch-ua-platform"
+        re.compile(p, re.IGNORECASE) for p in [
+            "fingerprintjs", "js.challenge", "checking your browser",
+            "verify you are human", "please enable javascript and cookies",
+            "sec-ch-ua-platform"
+        ]
     ],
     "Captcha": [
-        "captcha-container", "captcha-box", "captcha-frame", "captcha_input",
-        "id=\"captcha\"", "class=\"captcha\"", "iframe.+?captcha",
-        "data-captcha-sitekey"
+        re.compile(p, re.IGNORECASE) for p in [
+            "captcha-container", "captcha-box", "captcha-frame", "captcha_input",
+            'id="captcha"', 'class="captcha"', "iframe.+?captcha",
+            "data-captcha-sitekey"
+        ]
     ]
 }
+
 
 
 THREE_D_SECURE_KEYWORDS = [re.compile(pattern, re.IGNORECASE) for pattern in [
@@ -289,8 +311,9 @@ class GatewayFinder:
                 links = await page.query_selector_all('a')
                 for link in links:
                     href = await link.get_attribute('href')
-                    if href and self.is_relevant_url(href, start_url):
-                        urls.add(href)
+                    full_url = urljoin(start_url, href)
+                    if self.is_relevant_url(full_url, start_url):
+                        urls.add(full_url)
             except Exception as e:
                 logger.error(f"Error crawling {start_url}: {e}")
             finally:
