@@ -47,7 +47,7 @@ app = FastAPI()
 
 # Configuration (replace with your ScrapFly API key)
 SCRAPFLY_API_KEY = "your_scrapfly_api_key_here"
-PUPPETEER_SCRIPT = """
+PUPPETEER_SCRIPT = '
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
@@ -86,14 +86,14 @@ async function detect(url) {
 (async () => {
     console.log(JSON.stringify(await detect(process.argv[2])));
 })();
-"""
+'
 
 # Write Puppeteer script to temporary file
 with open("/tmp/detect.js", "w") as f:
     f.write(PUPPETEER_SCRIPT)
 
 async def extract_valid_payment_urls(base_url: str) -> List[str]:
-    """Extract payment-related URLs from the website up to depth 2."""
+    'Extract payment-related URLs from the website up to depth 2.'
     valid_urls = set([base_url])
     visited = set()
     depth = 0
@@ -135,7 +135,7 @@ async def extract_valid_payment_urls(base_url: str) -> List[str]:
     return list(valid_urls)
 
 async def scrapfly_fetch(url: str) -> Dict:
-    """Fetch and analyze page using ScrapFly API."""
+    'Fetch and analyze page using ScrapFly API.'
     try:
         async with aiohttp.ClientSession() as session:
             payload = {
@@ -164,7 +164,7 @@ async def scrapfly_fetch(url: str) -> Dict:
         return {"error": str(e)}
 
 def selenium_wire_fetch(url: str) -> Dict:
-    """Fetch and analyze network traffic using Selenium Wire."""
+    'Fetch and analyze network traffic using Selenium Wire.'
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
@@ -194,7 +194,7 @@ def selenium_wire_fetch(url: str) -> Dict:
         return {"error": str(e)}
 
 def run_puppeteer(url: str) -> Dict:
-    """Run Puppeteer script to analyze page."""
+    'Run Puppeteer script to analyze page.'
     try:
         result = subprocess.run(
             ["node", "/tmp/detect.js", url],
@@ -207,7 +207,7 @@ def run_puppeteer(url: str) -> Dict:
         return {"error": str(e)}
 
 def analyze_results(scrapfly_data: Dict, puppeteer_data: Dict, selenium_data: Dict) -> Dict:
-    """Analyze combined results from all tools."""
+    'Analyze combined results from all tools.'
     results = {
         "payment_gateway": [],
         "3d_enabled": False,
@@ -260,7 +260,7 @@ def analyze_results(scrapfly_data: Dict, puppeteer_data: Dict, selenium_data: Di
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage application lifespan."""
+    'Manage application lifespan.'
     # Startup
     yield
     # Shutdown
@@ -270,7 +270,7 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/gateway/")
 async def detect_gateway(url: str):
-    """Main API endpoint to detect payment gateways and technologies."""
+    'Main API endpoint to detect payment gateways and technologies.'
     start_time = time.time()
     
     if not url.startswith(('http://', 'https://')):
