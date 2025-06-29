@@ -297,16 +297,26 @@ GRAPHQL_KEYWORDS = [re.compile(pattern, re.IGNORECASE) for pattern in [
 
 app = FastAPI()
 
+
+def is_valid_domain(url):
+    try:
+        parsed = urlparse(url)
+        return "." in parsed.netloc and len(parsed.netloc) > 4
+    except:
+        return False
+
 class GatewayFinder:
     def __init__(self):
         self.seen_urls = set()
         self.session = tls_client.Session(client_identifier="chrome_120")
+
     async def crawl_urls(self, start_url: str) -> Set[str]:
         """Crawl the website for payment-related URLs."""
         urls = set()
-        if start_url in self.seen_urls:
+        if start_url in self.seen_urls or not is_valid_domain(start_url):
             return urls
         self.seen_urls.add(start_url)
+
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -314,7 +324,7 @@ class GatewayFinder:
                 await page.goto(start_url, timeout=30000)
                 await asyncio.sleep(5)  # Mimic human behavior
                 await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                
+
                 # Extract links
                 links = await page.query_selector_all('a')
                 for link in links:
@@ -322,6 +332,8 @@ class GatewayFinder:
                     if not href:
                         continue
                     full_url = urljoin(start_url, href)
+                    if not is_valid_domain(full_url):
+                        continue
                     if any(ignore in full_url.lower() for ignore in IGNORE_IF_URL_CONTAINS):
                         continue
                     if self.is_relevant_url(full_url, start_url):
