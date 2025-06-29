@@ -6,8 +6,6 @@ from typing import List, Dict, Set
 from fastapi import FastAPI, HTTPException
 from pydantic import HttpUrl
 from playwright.async_api import async_playwright
-from pyppeteer import launch
-from pyppeteer_stealth import stealth
 from seleniumwire import webdriver
 from seleniumwire.utils import get_driver
 from bs4 import BeautifulSoup
@@ -424,15 +422,15 @@ class GatewayFinder:
         urls.add(url)  # Include initial URL
 
         # Run tools in parallel
-        puppeteer_task = self.puppeteer_analyze(urls)
+        playwright_deep_task = self.playwright_analyze(urls)
         playwright_task = self.playwright_analyze(urls)
         selenium_task = self.selenium_wire_analyze(urls)
-        puppeteer_result, playwright_result, selenium_result = await asyncio.gather(
-            puppeteer_task, playwright_task, selenium_task, return_exceptions=True
+        playwright_result, playwright_deep_result, selenium_result = await asyncio.gather(
+            playwright_task, playwright_deep_task, selenium_task, return_exceptions=True
         )
 
         # Aggregate results
-        for result in [puppeteer_result, playwright_result, selenium_result]:
+        for result in [playwright_result, playwright_deep_result, selenium_result]:
             if isinstance(result, dict):
                 results["payment_gateway"].extend(list(result.get("gateways", set())))
                 if result.get("3d_secure", False):
