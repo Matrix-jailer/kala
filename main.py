@@ -276,14 +276,14 @@ THREE_D_SECURE_KEYWORDS = [re.compile(pattern, re.IGNORECASE) for pattern in [
 
 
 PLATFORM_KEYWORDS = {
-    "woocommerce": "WooCommerce",
-    "shopify": "Shopify",
-    "magento": "Magento",
-    "bigcommerce": "BigCommerce",
-    "prestashop": "PrestaShop",
-    "opencart": "OpenCart",
-    "wix": "Wix",
-    "squarespace": "Squarespace"
+    "woocommerce": [re.compile("woocommerce", re.IGNORECASE)],
+    "shopify": [re.compile("shopify", re.IGNORECASE)],
+    "magento": [re.compile("magento", re.IGNORECASE)],
+    "bigcommerce": [re.compile("bigcommerce", re.IGNORECASE)],
+    "prestashop": [re.compile("prestashop", re.IGNORECASE)],
+    "opencart": [re.compile("opencart", re.IGNORECASE)],
+    "wix": [re.compile("wix", re.IGNORECASE)],
+    "squarespace": [re.compile("squarespace", re.IGNORECASE)],
 }
 
 
