@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Install system dependencies for Chromium, ChromeDriver, and headless browsing
 RUN apt-get update && apt-get install -y \
     curl \
     gnupg \
@@ -26,21 +26,16 @@ RUN apt-get update && apt-get install -y \
     libgbm1 \
     libu2f-udev \
     xdg-utils \
-    nodejs \
-    npm \
     chromium \
     unzip \
     --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js for Puppeteer
+# Install Node.js for potential Puppeteer compatibility (optional, kept for flexibility)
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs
+    apt-get install -y nodejs npm
 
-# Install Puppeteer dependencies
-RUN npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
-
-# Install ChromeDriver (match Chromium version, assuming Debian's Chromium is ~126-138)
-RUN CHROMEDRIVER_VERSION=$(chromium --version | grep -oP '\d+\.\d+\.\d+\.\d+') && \
+# Install ChromeDriver matching Chromium version
+RUN CHROMEDRIVER_VERSION=$(chromium --version | grep -oP '\d+\.\d+\.\d+\.\d+' || echo "126.0.6478.126") && \
     curl -sSL -o /tmp/chromedriver.zip https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip && \
     unzip /tmp/chromedriver.zip -d /usr/local/bin/ && \
     mv /usr/local/bin/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
@@ -51,11 +46,17 @@ RUN CHROMEDRIVER_VERSION=$(chromium --version | grep -oP '\d+\.\d+\.\d+\.\d+') &
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install Playwright browsers
+RUN playwright install --with-deps
+
 # Copy application code
 COPY . .
 
-# Expose port
+# Expose port for Render
 EXPOSE 10000
+
+# Set environment variable for Python
+ENV PYTHONUNBUFFERED=1
 
 # Run the application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "10000"]
