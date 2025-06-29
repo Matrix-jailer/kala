@@ -49,9 +49,9 @@ NON_HTML_EXTENSIONS = [
 ]
 IGNORE_IF_URL_CONTAINS = [
     # Common asset/content folders
-    "wp-content", "wp-includes", "gstatic.com/instantbuy/svg/transparent_square.svg", "skin/frontend", "/assets/", "gstatic.com", ".svg", "transparent_square.svg", "cdn.cookielaw.org", "cookiebot.com", "clarity.ms", "sentry.io", "cdn.jsdelivr.net", "fonts.gstatic.com", "doubleclick.net", "segment.com", "matomo.org", "bam.nr-data.net", "/browser/vitals", "/themes/", "/static/", "/media/", "/images/", "/img/",
+    "wp-content", "wp-includes", 'youtube.com', 'www.youtube.com', 'https://youtube.com', 'https://www.youtube.com', "gstatic.com/instantbuy/svg/transparent_square.svg", "skin/frontend", "/assets/", 'assets' "gstatic.com", ".svg", "transparent_square.svg", "cdn.cookielaw.org", "cookiebot.com", "clarity.ms", "sentry.io", "cdn.jsdelivr.net", "fonts.gstatic.com", "doubleclick.net", "segment.com", "matomo.org", "bam.nr-data.net", "/browser/vitals", "/themes/", "/static/", "/media/", "/images/", "/img/",
 
-    "https://facebook.com", "https://googlemanager.com", "consentcdn.cookiebot.com", "https://hb.imgix.net", "https://content-autofill.googleapis.com", "cookiebot.com", "https://static.klaviyo.com", "static.klaviyo.com", "https://content-autofill.googleapis.com",
+    "https://facebook.com", "youtubei/v1/log_event", "https://play.google.com", "google.com/log", "https://googlemanager.com", "consentcdn.cookiebot.com", "https://hb.imgix.net", "https://content-autofill.googleapis.com", "cookiebot.com", "https://static.klaviyo.com", "static.klaviyo.com", "https://content-autofill.googleapis.com",
     "content-autofill.googleapis.com", "https://www.google.com", "https://googleads.g.doubleclick.net", "googleads.g.doubleclick.net", "googleads.g.doubleclick.net",
     "https://www.googletagmanager.com", "googletagmanager.com", "https://www.googleadservices.com", "googleadservices.com", "https://fonts.googleapis.com",
     "fonts.googleapis.com", "http://clients2.google.com", "clients2.google.com", "https://analytics.google.com", "hanalytics.google.com",
@@ -121,7 +121,7 @@ GATEWAY_KEYWORDS = {
         r'api\.authorize\.net/xml/v1', r'accept\.authorize\.net/payment', r'authorize\.net/profile'
     ]],
     "square": [re.compile(pattern, re.IGNORECASE) for pattern in [
-        r'squareup\.com', r'js\.squarecdn\.com', r'square\.js', r'data-square', r'square-payment-form',
+        r'squareup\.com', r'pci-connect.squareup.com', r'js\.squarecdn\.com', r'square\.js', r'data-square', r'square-payment-form',
         r'square-checkout-sdk', r'connect\.squareup\.com', r'square\.min\.js', r'squarecdn\.com',
         r'squareupsandbox\.com', r'sandbox\.web\.squarecdn\.com', r'square-payment-flow', r'square\.card',
         r'squareup\.com/payments', r'data-square-application-id', r'square\.createPayment'
@@ -173,7 +173,7 @@ GATEWAY_KEYWORDS = {
         r'amazon-pay-checkout-session'
     ]],
     "Apple pay": [re.compile(pattern, re.IGNORECASE) for pattern in [
-        r'apple-pay\.js', r'data-apple-pay', r'apple-pay-button', r'apple-pay-checkout-sdk',
+        r'apple-pay\.js', r'generate_gpay_btn', r'google-pay/token', r'pay.google.com',  r'data-apple-pay', r'apple-pay-button', r'apple-pay-checkout-sdk',
         r'apple-pay-session', r'apple-pay-payment-request', r'ApplePaySession', r'apple-pay-merchant-id',
         r'apple-pay-payment', r'apple-pay-sdk', r'data-apple-pay-token', r'apple-pay-checkout',
         r'apple-pay-domain'
@@ -299,6 +299,7 @@ app = FastAPI()
 
 class GatewayFinder:
     def __init__(self):
+        self.seen_urls = set()
         self.session = tls_client.Session(client_identifier="chrome_120")
     async def crawl_urls(self, start_url: str) -> Set[str]:
         """Crawl the website for payment-related URLs."""
