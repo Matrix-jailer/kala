@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+selenium
+selenium-wire
+requests
+beautifulsoup4
+regex
+lxml
+aiohttp
