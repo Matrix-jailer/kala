@@ -49,7 +49,7 @@ NON_HTML_EXTENSIONS = [
 ]
 IGNORE_IF_URL_CONTAINS = [
     # Common asset/content folders
-    "wp-content", "wp-includes", "skin/frontend", "/assets/", "cdn.cookielaw.org", "cookiebot.com", "clarity.ms", "sentry.io", "cdn.jsdelivr.net", "fonts.gstatic.com", "doubleclick.net", "segment.com", "matomo.org", "bam.nr-data.net", "/browser/vitals", "/themes/", "/static/", "/media/", "/images/", "/img/",
+    "wp-content", "wp-includes", "gstatic.com/instantbuy/svg/transparent_square.svg", "skin/frontend", "/assets/", "gstatic.com", ".svg", "transparent_square.svg", "cdn.cookielaw.org", "cookiebot.com", "clarity.ms", "sentry.io", "cdn.jsdelivr.net", "fonts.gstatic.com", "doubleclick.net", "segment.com", "matomo.org", "bam.nr-data.net", "/browser/vitals", "/themes/", "/static/", "/media/", "/images/", "/img/",
 
     "https://facebook.com", "https://googlemanager.com", "consentcdn.cookiebot.com", "https://hb.imgix.net", "https://content-autofill.googleapis.com", "cookiebot.com", "https://static.klaviyo.com", "static.klaviyo.com", "https://content-autofill.googleapis.com",
     "content-autofill.googleapis.com", "https://www.google.com", "https://googleads.g.doubleclick.net", "googleads.g.doubleclick.net", "googleads.g.doubleclick.net",
