@@ -279,8 +279,7 @@ class GatewayFinder:
         urls = set()
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await stealth(page)  # Apply stealth
+            page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             try:
                 await page.goto(start_url, timeout=30000)
                 await asyncio.sleep(5)  # Mimic human behavior
@@ -313,7 +312,6 @@ class GatewayFinder:
         results = {"gateways": set(), "3d_secure": False, "captcha": set()}
         browser = await launch(headless=True, args=['--no-sandbox'])
         page = await browser.new_page()
-        await stealth(page)
         
         for url in urls:
             try:
@@ -355,7 +353,6 @@ class GatewayFinder:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
-            await stealth(page)
             
             for url in urls:
                 try:
@@ -449,7 +446,6 @@ class GatewayFinder:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
-            await stealth(page)
             try:
                 await page.goto(url, timeout=30000)
                 content = await page.content()
