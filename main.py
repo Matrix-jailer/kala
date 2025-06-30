@@ -432,6 +432,8 @@ class GatewayFinder:
                     await page.goto(url, timeout=30000)
                     await asyncio.sleep(5)
                     content = await page.content()
+                    if "cf-turnstile-response" in content or "challenge" in content.lower():
+                        logger.warning(f"[playwright] Cloudflare challenge detected at {url}")
                     for gateway, patterns in GATEWAY_KEYWORDS.items():
                         if any(pattern.search(content) for pattern in patterns):
                             results["gateways"].add(gateway)
