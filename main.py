@@ -312,6 +312,7 @@ class GatewayFinder:
             
             while to_visit:
                 current_url, depth = to_visit.pop(0)
+                logger.info(f"[crawl_urls] Visiting: {current_url} at depth {depth}")
                 if current_url in visited or depth > max_depth:
                     continue
                 visited.add(current_url)
@@ -327,6 +328,7 @@ class GatewayFinder:
                             if self.is_relevant_url(full_url, start_url):
                                 collected_urls.add(full_url)
                                 to_visit.append((full_url, depth + 1))
+                                logger.info(f"[crawl_urls] Queued for crawl: {full_url} (depth {depth + 1})")
                     forms = await page.query_selector_all("form")
                     for form in forms:
                         action = await form.get_attribute("action")
