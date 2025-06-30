@@ -495,7 +495,7 @@ class GatewayFinder:
         driver.quit()
         return results
 
-    async def analyze(self, url: str) -> Dict:
+    async def analyze(self, url: str) -> Dict[str, Any]:
         """Main analysis function."""
         start_time = time.time()
         results = {
@@ -510,7 +510,7 @@ class GatewayFinder:
         }
 
         # Crawl URLs
-        urls = await self.crawl_urls(url, max_depth=2)
+        urls = await self.crawl_urls(url, max_depth=2, concurrency=7)
         urls.add(url)  # Include initial URL
 
         # Run tools in parallel
