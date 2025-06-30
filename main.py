@@ -3,7 +3,7 @@ import re
 import time
 from typing import Any, Dict, Set
 import logging
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from typing import List, Dict, Set
 from fastapi import FastAPI, HTTPException
 from pydantic import HttpUrl
@@ -303,7 +303,30 @@ class GatewayFinder:
         self.seen_urls = set()
         self.session = tls_client.Session(client_identifier="chrome_120")
 
-    async def crawl_urls(self, start_url: str, max_depth: int = 2, concurrency: int = 3) -> Set[str]:
+    def is_relevant_url(self, url: str, base_url: str) -> bool:
+        if any(ext in url.lower() for ext in NON_HTML_EXTENSIONS):
+            return False
+        if any(ignore in url.lower() for ignore in IGNORE_IF_URL_CONTAINS):
+            return False
+        parsed_path = urlparse(url).path.lower().strip("/")
+        path_parts = parsed_path.split("/")
+        if len(path_parts) <= 2:
+            return any(regex.fullmatch(path_parts[-1]) for regex in PAYMENT_INDICATOR_REGEX)
+        return False
+
+    def extract_urls_from_js(self, js_code: str, base_url: str) -> Set[str]:
+        urls = set()
+        patterns = [
+            r"['\"](\/[a-zA-Z0-9_\-\/\?\=\&\#]+)['\"]",
+            r"['\"](https?:\/\/[^\s\"']+)['\"]"
+        ]
+        for pattern in patterns:
+            for match in re.findall(pattern, js_code):
+                full_url = urljoin(base_url, match)
+                urls.add(full_url)
+        return urls
+
+    async def crawl_urls(self, start_url: str, max_depth: int = 1, concurrency: int = 3) -> Set[str]:
         visited = set()
         collected_urls = set()
         queue = asyncio.Queue()
@@ -333,9 +356,6 @@ class GatewayFinder:
                             full_url = urljoin(current_url, raw_url)
                             if self.is_relevant_url(full_url, start_url):
                                 collected_urls.add(full_url)
-                                if full_url not in visited:
-                                    await queue.put((full_url, depth + 1))
-                                    logger.info(f"[crawl_urls] Queued: {full_url} (depth {depth + 1})")
 
                         for a in anchors:
                             href = await a.get_attribute("href")
@@ -374,40 +394,15 @@ class GatewayFinder:
         logger.info(f"[crawl_urls] Finished. Found {len(collected_urls)} relevant URLs from {start_url}")
         return collected_urls.union({start_url})
 
-
-    def is_relevant_url(self, url: str, base_url: str) -> bool:
-        """Check if a URL is relevant based on payment indicators and filters."""
-        if any(ext in url.lower() for ext in NON_HTML_EXTENSIONS):
-            return False
-        if any(ignore in url.lower() for ignore in IGNORE_IF_URL_CONTAINS):
-            return False
-        if any(regex.search(url) for regex in PAYMENT_INDICATOR_REGEX):
-            return True
-        return False
-    def extract_urls_from_js(self, js_code: str, base_url: str) -> Set[str]:
-        """Extract URLs from inline JS like onclick handlers."""
-        urls = set()
-        patterns = [
-            r"['\"](\/[a-zA-Z0-9_\-\/\?\=\&\#]+)['\"]",
-            r"['\"](https?:\/\/[^\s\"']+)['\"]"
-        ]
-        for pattern in patterns:
-            for match in re.findall(pattern, js_code):
-                full_url = urljoin(base_url, match)
-                urls.add(full_url)
-        return urls
-
     async def puppeteer_analyze(self, urls: List[str]) -> Dict:
-        """Analyze URLs with Puppeteer for Shadow DOM, iframes, and JS."""
         results = {"gateways": set(), "3d_secure": False, "captcha": set()}
         browser = await launch(headless=True, args=['--no-sandbox'])
         page = await browser.new_page()
-        
+
         for url in urls:
             try:
                 await page.goto(url, timeout=30000)
                 await asyncio.sleep(5)
-                # Inspect Shadow DOM and iframes
                 shadow_elements = await page.evaluate('''() => {
                     let results = [];
                     document.querySelectorAll('*').forEach(el => {
@@ -422,7 +417,7 @@ class GatewayFinder:
                     });
                     return results;
                 }''')
-                
+
                 content = shadow_elements + iframe_content + [await page.content()]
                 for gateway, patterns in GATEWAY_KEYWORDS.items():
                     if any(any(pattern.search(c) for pattern in patterns) for c in content):
@@ -438,12 +433,11 @@ class GatewayFinder:
         return results
 
     async def playwright_analyze(self, urls: List[str]) -> Dict:
-        """Analyze URLs with Playwright for forms and JS rendering."""
         results = {"gateways": set(), "3d_secure": False, "captcha": set(), "platform": None}
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
-            
+
             for url in urls:
                 try:
                     await page.goto(url, timeout=30000)
@@ -468,14 +462,13 @@ class GatewayFinder:
         return results
 
     async def selenium_wire_analyze(self, urls: List[str]) -> Dict:
-        """Analyze network traffic with Selenium Wire."""
         results = {"gateways": set(), "3d_secure": False, "captcha": set(), "cloudflare": False}
         options = webdriver.ChromeOptions()
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         driver = webdriver.Chrome(options=options)
-        
+
         for url in urls:
             try:
                 driver.get(url)
@@ -497,7 +490,6 @@ class GatewayFinder:
         return results
 
     async def analyze(self, url: str) -> Dict[str, Any]:
-        """Main analysis function."""
         start_time = time.time()
         results = {
             "url": url,
@@ -510,20 +502,18 @@ class GatewayFinder:
             "time_taken": "0.00"
         }
 
-        # Crawl URLs
-        urls = await self.crawl_urls(url, max_depth=2, concurrency=7)
-        urls.add(url)  # Include initial URL
+        urls = await self.crawl_urls(url, max_depth=1, concurrency=3)
+        urls.add(url)
 
-        # Run tools in parallel
-        playwright_deep_task = self.playwright_analyze(urls)
-        playwright_task = self.playwright_analyze(urls)
-        selenium_task = self.selenium_wire_analyze(urls)
-        playwright_result, playwright_deep_result, selenium_result = await asyncio.gather(
-            playwright_task, playwright_deep_task, selenium_task, return_exceptions=True
+        puppeteer_task = self.puppeteer_analyze(list(urls))
+        playwright_task = self.playwright_analyze(list(urls))
+        selenium_task = self.selenium_wire_analyze(list(urls))
+
+        puppeteer_result, playwright_result, selenium_result = await asyncio.gather(
+            puppeteer_task, playwright_task, selenium_task, return_exceptions=True
         )
 
-        # Aggregate results
-        for result in [playwright_result, playwright_deep_result, selenium_result]:
+        for result in [puppeteer_result, playwright_result, selenium_result]:
             if isinstance(result, dict):
                 results["payment_gateway"].extend(list(result.get("gateways", set())))
                 if result.get("3d_secure", False):
@@ -534,7 +524,6 @@ class GatewayFinder:
                 if result.get("platform"):
                     results["platform"] = result["platform"]
 
-        # Check for GraphQL
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
@@ -551,6 +540,7 @@ class GatewayFinder:
         results["captcha"] = list(set(results["captcha"]))
         results["time_taken"] = f"{time.time() - start_time:.2f}"
         return results
+
 
 @app.get("/gateway/")
 async def gateway_endpoint(url: HttpUrl):
