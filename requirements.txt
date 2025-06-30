@@ -5,6 +5,7 @@ selenium-wire==5.1.0
 tls-client==0.2.2
 aiohttp
 pyppeteer==1.0.2
+pyee==8.2.2
 requests==2.32.3
 aiohttp==3.10.5
 beautifulsoup4==4.12.3
