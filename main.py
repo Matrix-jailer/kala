@@ -301,71 +301,78 @@ class GatewayFinder:
     def __init__(self):
         self.seen_urls = set()
         self.session = tls_client.Session(client_identifier="chrome_120")
-    async def crawl_urls(self, start_url: str, max_depth: int = 2) -> Set[str]:
-        """Crawl the website for payment-related URLs from anchors, buttons, forms, and onclicks."""
+
+    async def crawl_urls(self, start_url: str, max_depth: int = 2, concurrency: int = 3) -> Set[str]:
         visited = set()
-        to_visit = [(start_url, 0)]
         collected_urls = set()
+        queue = asyncio.Queue()
+        await queue.put((start_url, 0))
+
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-            
-            while to_visit:
-                current_url, depth = to_visit.pop(0)
-                logger.info(f"[crawl_urls] Visiting: {current_url} at depth {depth}")
-                if current_url in visited or depth > max_depth:
-                    continue
-                visited.add(current_url)
-                try:
-                    await page.goto(current_url, timeout=30000)
-                    await asyncio.sleep(2)
-                    await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                    anchors = await page.query_selector_all("a")
-                    for a in anchors:
-                        href = await a.get_attribute("href")
-                        if href:
-                            full_url = urljoin(current_url, href)
+
+            async def worker():
+                page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                while not queue.empty():
+                    current_url, depth = await queue.get()
+                    if current_url in visited or depth > max_depth:
+                        queue.task_done()
+                        continue
+                    visited.add(current_url)
+                    logger.info(f"[crawl_urls] Visiting: {current_url} at depth {depth}")
+                    try:
+                        await page.goto(current_url, timeout=30000)
+                        await asyncio.sleep(2)
+                        await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                        anchors = await page.query_selector_all("a")
+                        forms = await page.query_selector_all("form")
+                        buttons = await page.query_selector_all("button")
+
+                        async def process_url(raw_url):
+                            full_url = urljoin(current_url, raw_url)
                             if self.is_relevant_url(full_url, start_url):
                                 collected_urls.add(full_url)
-                                if full_url not in visited and (full_url, depth + 1) not in to_visit:
-                                    to_visit.append((full_url, depth + 1))
-                                logger.info(f"[crawl_urls] Queued for crawl: {full_url} (depth {depth + 1})")
-                    forms = await page.query_selector_all("form")
-                    for form in forms:
-                        action = await form.get_attribute("action")
-                        if action:
-                            full_url = urljoin(current_url, action)
-                            if self.is_relevant_url(full_url, start_url):
-                                collected_urls.add(full_url)
-                                if full_url not in visited and (full_url, depth + 1) not in to_visit:
-                                to_visit.append((full_url, depth + 1))
-                                logger.info(f"[crawl_urls] Queued for crawl: {full_url} (depth {depth + 1})")
-                    buttons = await page.query_selector_all("button")
-                    for btn in buttons:
-                        onclick = await btn.get_attribute("onclick")
-                        if onclick:
-                            urls_in_js = self.extract_urls_from_js(onclick, current_url)
-                            for u in urls_in_js:
-                                if self.is_relevant_url(u, start_url):
-                                    collected_urls.add(u)
-                                    if u not in visited and (u, depth + 1) not in to_visit:
-                                        to_visit.append((u, depth + 1))
-                                        logger.info(f"[crawl_urls] Queued for crawl: {u} (depth {depth + 1})")
-                    for a in anchors:
-                        onclick = await a.get_attribute("onclick")
-                        if onclick:
-                            urls_in_js = self.extract_urls_from_js(onclick, current_url)
-                            for u in urls_in_js:
-                                if self.is_relevant_url(u, start_url):
-                                    collected_urls.add(u)
-                                    if u not in visited and (u, depth + 1) not in to_visit:
-                                        to_visit.append((u, depth + 1))
-                                        logger.info(f"[crawl_urls] Queued for crawl: {u} (depth {depth + 1})")
-                except Exception as e:
-                    logger.error(f"Error crawling {current_url}: {e}")
+                                if full_url not in visited:
+                                    await queue.put((full_url, depth + 1))
+                                    logger.info(f"[crawl_urls] Queued: {full_url} (depth {depth + 1})")
+
+                        for a in anchors:
+                            href = await a.get_attribute("href")
+                            if href:
+                                await process_url(href)
+
+                        for form in forms:
+                            action = await form.get_attribute("action")
+                            if action:
+                                await process_url(action)
+
+                        for btn in buttons:
+                            onclick = await btn.get_attribute("onclick")
+                            if onclick:
+                                urls_in_js = self.extract_urls_from_js(onclick, current_url)
+                                for u in urls_in_js:
+                                    await process_url(u)
+
+                        for a in anchors:
+                            onclick = await a.get_attribute("onclick")
+                            if onclick:
+                                urls_in_js = self.extract_urls_from_js(onclick, current_url)
+                                for u in urls_in_js:
+                                    await process_url(u)
+
+                    except Exception as e:
+                        logger.error(f"[crawl_urls] Error crawling {current_url}: {e}")
+                    finally:
+                        queue.task_done()
+
+                await page.close()
+
+            await asyncio.gather(*(worker() for _ in range(concurrency)))
             await browser.close()
-        logger.info(f"[crawl_urls] Found {len(collected_urls)} relevant URLs from {start_url}")
+
+        logger.info(f"[crawl_urls] Finished. Found {len(collected_urls)} relevant URLs from {start_url}")
         return collected_urls.union({start_url})
+
 
     def is_relevant_url(self, url: str, base_url: str) -> bool:
         """Check if a URL is relevant based on payment indicators and filters."""
