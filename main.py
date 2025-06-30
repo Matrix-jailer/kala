@@ -327,7 +327,8 @@ class GatewayFinder:
                             full_url = urljoin(current_url, href)
                             if self.is_relevant_url(full_url, start_url):
                                 collected_urls.add(full_url)
-                                to_visit.append((full_url, depth + 1))
+                                if full_url not in visited and (full_url, depth + 1) not in to_visit:
+                                    to_visit.append((full_url, depth + 1))
                                 logger.info(f"[crawl_urls] Queued for crawl: {full_url} (depth {depth + 1})")
                     forms = await page.query_selector_all("form")
                     for form in forms:
@@ -336,7 +337,9 @@ class GatewayFinder:
                             full_url = urljoin(current_url, action)
                             if self.is_relevant_url(full_url, start_url):
                                 collected_urls.add(full_url)
+                                if full_url not in visited and (full_url, depth + 1) not in to_visit:
                                 to_visit.append((full_url, depth + 1))
+                                logger.info(f"[crawl_urls] Queued for crawl: {full_url} (depth {depth + 1})")
                     buttons = await page.query_selector_all("button")
                     for btn in buttons:
                         onclick = await btn.get_attribute("onclick")
@@ -345,7 +348,9 @@ class GatewayFinder:
                             for u in urls_in_js:
                                 if self.is_relevant_url(u, start_url):
                                     collected_urls.add(u)
-                                    to_visit.append((u, depth + 1))
+                                    if u not in visited and (u, depth + 1) not in to_visit:
+                                        to_visit.append((u, depth + 1))
+                                        logger.info(f"[crawl_urls] Queued for crawl: {u} (depth {depth + 1})")
                     for a in anchors:
                         onclick = await a.get_attribute("onclick")
                         if onclick:
@@ -353,7 +358,9 @@ class GatewayFinder:
                             for u in urls_in_js:
                                 if self.is_relevant_url(u, start_url):
                                     collected_urls.add(u)
-                                    to_visit.append((u, depth + 1))
+                                    if u not in visited and (u, depth + 1) not in to_visit:
+                                        to_visit.append((u, depth + 1))
+                                        logger.info(f"[crawl_urls] Queued for crawl: {u} (depth {depth + 1})")
                 except Exception as e:
                     logger.error(f"Error crawling {current_url}: {e}")
             await browser.close()
