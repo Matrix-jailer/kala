@@ -42,6 +42,9 @@ RUN CHROMEDRIVER_VERSION=$(chromium --version | grep -oP '\d+\.\d+\.\d+\.\d+' ||
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-install Chromium for Pyppeteer
+RUN python -m pyppeteer install
+
 # Install Playwright browsers
 RUN playwright install --with-deps
 
