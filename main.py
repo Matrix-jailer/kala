@@ -2,6 +2,7 @@ import asyncio
 import re
 import time
 from typing import Any, Dict, Set
+from pyppeteer import launch
 import logging
 from urllib.parse import urljoin, urlparse
 from typing import List, Dict, Set
